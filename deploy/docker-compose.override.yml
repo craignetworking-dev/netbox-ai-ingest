@@ -1,0 +1,9 @@
+# Layered on top of netbox-docker's base compose.
+# Keep this minimal — it's the seam where netbox-ai-ingest customizes the stock
+# deployment without forking it. Add custom config/plugins here in later layers.
+services:
+  netbox:
+    ports:
+      - "8000:8080"
+    healthcheck:
+      start_period: 180s

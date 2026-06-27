@@ -1,0 +1,19 @@
+# Vendored upstream (pinned + re-fetchable via deploy/bootstrap.sh)
+deploy/.netbox-docker/
+
+# Secrets / local env
+*.env
+!*.env.example
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
