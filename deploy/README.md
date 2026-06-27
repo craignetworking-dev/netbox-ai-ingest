@@ -27,7 +27,7 @@ NETBOX_DOCKER_REF=3.10.0-3.2.1 ./bootstrap.sh
 ```
 Record the ref you chose right here once you've picked one:
 
-> Pinned ref: _TBD — fill in after first boot_
+> Pinned ref: `5.0.1`
 
 ## Definition of done (this session)
 - [ ] `./bootstrap.sh` brings the stack up with no errors

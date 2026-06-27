@@ -12,7 +12,7 @@ set -euo pipefail
 #     git -C deploy/.netbox-docker describe --tags
 # then re-run pinned to that tag, e.g.:
 #     NETBOX_DOCKER_REF=3.10.0-3.2.1 ./bootstrap.sh
-NETBOX_DOCKER_REF="${NETBOX_DOCKER_REF:-release}"
+NETBOX_DOCKER_REF="${NETBOX_DOCKER_REF:-5.0.1}"
 # -----------------------------------------------------------------------------
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
