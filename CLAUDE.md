@@ -50,7 +50,7 @@ Build in order. Keep each layer's work scoped to that layer; don't bleed ahead.
 | Layer | What it does | Status |
 |------:|--------------|--------|
 | 1. Deployment | One-command reproducible NetBox via pinned `netbox-docker` wrapper, with reboot persistence | ✅ done |
-| 2. Provisioning engine | Config-driven, dependency-aware engine that applies per-client YAML baselines (org + location hierarchy, tenancy, DCIM) into NetBox idempotently | ⬜ in progress |
+| 2. Provisioning engine | Config-driven, dependency-aware engine that applies per-client YAML baselines (org + location hierarchy, tenancy, DCIM) into NetBox idempotently | ✅ Slice 1 done |
 | 3. AI ingestion pipeline | Pseudonymize-then-LLM: structure messy docs into NetBox objects via API | ⬜ planned |
 | 4. FakeCorp dataset | Fully synthetic demo network: devices, interfaces, cables on top of the Layer 2 baseline | ⬜ planned |
 
@@ -83,7 +83,8 @@ Detailed marching orders live in `scaffold/SPEC.md`. Summary:
   healthcheck `start_period`, `restart: unless-stopped` on all services), and
   brings the stack up. Verified: NetBox v4.6, Postgres 18, dual Valkey, all
   healthy, survives reboot.
-- **Layer 2 in progress** per `scaffold/SPEC.md`.
+- **Layer 2 Slice 1 complete.** `scaffold/apply.py` + engine apply org + location hierarchy idempotently; verified: 0 changes on re-run. Slice 2 (tenancy + DCIM) adds registry entries and baseline data only — no engine refactor.
+- `baselines/` holds per-client org-hierarchy YAML (the NetSource multi-client pattern — one file per client, no code change to onboard). `fakecorp/` is reserved for Layer 4 device-level data (devices, interfaces, cables).
 - Layers 3–4 are placeholders (`ingest/`, `fakecorp/`).
 
 ## Tech stack & conventions

@@ -1,0 +1,43 @@
+# FakeCorp baseline — fully synthetic. No real-world data. See CLAUDE.md.
+
+regions:
+  - name: North America
+    slug: north-america
+  - name: US East
+    slug: us-east
+    parent: north-america
+  - name: US West
+    slug: us-west
+    parent: north-america
+
+site_groups:
+  - name: Corporate
+    slug: corporate
+
+sites:
+  - name: Atlanta HQ
+    slug: atlanta-hq
+    status: active
+    region: us-east
+    group: corporate
+  - name: Denver DC
+    slug: denver-dc
+    status: active
+    region: us-west
+    group: corporate
+
+locations:
+  - name: Building A
+    slug: atl-bldg-a
+    site: atlanta-hq
+  - name: Floor 1
+    slug: atl-bldg-a-fl1
+    site: atlanta-hq
+    parent: atl-bldg-a
+  - name: Server Room 101
+    slug: atl-bldg-a-fl1-sr101
+    site: atlanta-hq
+    parent: atl-bldg-a-fl1
+  - name: Main Hall
+    slug: den-main
+    site: denver-dc
