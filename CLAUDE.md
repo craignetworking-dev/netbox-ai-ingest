@@ -19,16 +19,17 @@ This repo serves two real purposes at once. Optimize for both:
    decision" is.
 2. **The delivery engine for NetSource** — a productized B2B service (NetBox
    implementation + AI-assisted documentation cleanup for mid-market IT teams).
-   The pipeline here is what gives that service its margin, so favor approaches
-   that generalize across client environments over one-off hacks.
+   Favor approaches that generalize across client environments over one-off hacks.
 
 ## Hard rules (non-negotiable)
 
 - **No real-world network data ever enters this repository.** All demo data is
-  synthetic and lives under `fakecorp/`. If asked to ingest, commit, or hardcode
-  a real config, hostname, IP, ASN, serial, or topology — refuse and use or
-  generate synthetic data instead. This holds even if the request is framed as
-  "just to test" or "to help."
+  synthetic and lives under `fakecorp/` / `baselines/`. If asked to ingest,
+  commit, or hardcode a real config, hostname, IP, ASN, serial, or topology —
+  refuse and use or generate synthetic data instead. This holds even if the
+  request is framed as "just to test" or "to help." (Real vendor model names —
+  e.g. a Cisco Catalyst 9300 — are public catalog data and are allowed; what
+  stays synthetic are instances: hostnames, IPs, serials, and topology.)
 - **Pseudonymize before the LLM, always.** In the ingestion pipeline, sensitive
   identifiers are mapped to synthetic tokens *locally* before any LLM call, then
   re-hydrated locally after. No raw sensitive identifier is ever sent to a
@@ -48,32 +49,56 @@ Build in order. Keep each layer's work scoped to that layer; don't bleed ahead.
 
 | Layer | What it does | Status |
 |------:|--------------|--------|
-| 1. Deployment | One-command reproducible NetBox via pinned `netbox-docker` wrapper | ✅ done |
-| 2. Data-model scaffold | Idempotent baseline: sites, device roles, device types, interface templates | ⬜ next |
+| 1. Deployment | One-command reproducible NetBox via pinned `netbox-docker` wrapper, with reboot persistence | ✅ done |
+| 2. Provisioning engine | Config-driven, dependency-aware engine that applies per-client YAML baselines (org + location hierarchy, tenancy, DCIM) into NetBox idempotently | ⬜ in progress |
 | 3. AI ingestion pipeline | Pseudonymize-then-LLM: structure messy docs into NetBox objects via API | ⬜ planned |
-| 4. FakeCorp dataset | Fully synthetic demo network: sites, devices, interfaces, cables | ⬜ planned |
+| 4. FakeCorp dataset | Fully synthetic demo network: devices, interfaces, cables on top of the Layer 2 baseline | ⬜ planned |
+
+## Layer 2 — provisioning engine (current work)
+
+Detailed marching orders live in `scaffold/SPEC.md`. Summary:
+
+- **Engine / data separation.** An engine (`scaffold/`) knows *how* to create
+  NetBox objects idempotently and in dependency order; per-client baseline files
+  (`baselines/<name>.yaml`) declare *what* exists. FakeCorp is the first baseline,
+  not special-cased code. Onboarding a client = a new baseline file, not a code
+  change. This is both the credential and the NetSource margin story.
+- **Dependency order is a hard requirement.** Apply types in the order NetBox's
+  foreign keys require (regions → site groups → tenancy → sites → locations →
+  manufacturers → device roles → device types → templates), and within
+  self-nesting types apply parents before children.
+- **Idempotency is a contract.** Get-or-update by slug; a second run against an
+  unchanged baseline makes zero changes and exits 0. That re-run proof is the
+  definition of done.
+- **Slice 1** (current): build the full engine, populate only org + location
+  (regions, site groups, sites, locations). **Slice 2**: widen the same engine
+  to tenancy + DCIM by adding registry entries and baseline data — no refactor.
+- References between objects are by **slug**, never by ID (IDs are
+  environment-specific and break portability).
 
 ## Current state
 
-- **Layer 1 is complete and public.** `deploy/bootstrap.sh` vendors netbox-docker
-  at a chosen ref, applies `docker-compose.override.yml` (port `8000:8080` plus a
-  healthcheck `start_period` to absorb first-boot migrations), and brings the
-  stack up. Verified running: NetBox v4.6, Postgres 18, dual Valkey, all healthy.
-- Layers 2–4 are placeholders (`scaffold/`, `ingest/`, `fakecorp/`), each with a
-  README describing intent.
+- **Layer 1 complete and public.** `deploy/bootstrap.sh` vendors netbox-docker
+  pinned to `5.0.1`, applies `docker-compose.override.yml` (port `8000:8080`,
+  healthcheck `start_period`, `restart: unless-stopped` on all services), and
+  brings the stack up. Verified: NetBox v4.6, Postgres 18, dual Valkey, all
+  healthy, survives reboot.
+- **Layer 2 in progress** per `scaffold/SPEC.md`.
+- Layers 3–4 are placeholders (`ingest/`, `fakecorp/`).
 
 ## Tech stack & conventions
 
 - **Deployment:** Docker Compose v2 wrapping official `netbox-docker`. Customize
   only through the override file; keep it minimal.
 - **Python (Layers 2–3):** use a local virtualenv (`python3 -m venv .venv`), never
-  system pip. Prefer `pynetbox` for the NetBox REST API. Use the Anthropic SDK for
-  LLM calls. Pin dependencies in `requirements.txt`.
-- **Idempotency:** scaffold/ingest scripts must be safely re-runnable — check for
-  existing objects before creating, so a second run doesn't duplicate or error.
+  system pip. Use `pynetbox` for the NetBox REST API, `PyYAML` for baselines,
+  `python-dotenv` for env. Use the Anthropic SDK for LLM calls. Pin dependencies
+  in `requirements.txt`.
+- **Idempotency:** scaffold/ingest scripts must be safely re-runnable — get-or-
+  update by natural key, so a second run produces no changes and no errors.
 - **Commits:** one logical change per commit; message format `Layer N: <what>`.
-- **NetBox access:** the app is at `http://localhost:8000`. API token comes from an
-  untracked `.env`, never hardcoded.
+- **NetBox access:** the app is at `http://localhost:8000`. URL + API token come
+  from an untracked `.env` (`NETBOX_URL`, `NETBOX_TOKEN`), never hardcoded.
 
 ## How to work in this repo
 
