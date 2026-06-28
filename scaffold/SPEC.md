@@ -94,14 +94,14 @@ before children**:
 
 1. `regions`        (self-nesting)
 2. `site_groups`    (self-nesting)
-3. `tenant_groups`  (self-nesting)            ← Slice 2
-4. `tenants`        (-> tenant_group)         ← Slice 2
+3. `tenant_groups`  (self-nesting)            ← Slice 2a
+4. `tenants`        (-> tenant_group)         ← Slice 2a
 5. `sites`          (-> region, site_group, tenant)
 6. `locations`      (self-nesting; -> site, tenant)
-7. `manufacturers`                            ← Slice 2
-8. `device_roles`                             ← Slice 2
-9. `device_types`   (-> manufacturer)         ← Slice 2
-10. device-type port/interface templates (-> device_type) ← Slice 2
+7. `manufacturers`                            ← Slice 2a
+8. `device_roles`                             ← Slice 2a
+9. `device_types`   (-> manufacturer)         ← Slice 2a
+10. device-type port/interface templates (-> device_type) ← Slice 2b
 
 **Intra-type nesting:** within `regions`, `site_groups`, and `locations`, an
 entry's `parent` must be created before the entry. Handle this with a
@@ -132,11 +132,22 @@ organization + location hierarchy — `regions`, `site_groups`, `sites`,
 (a site needs its region), intra-type nesting (a floor needs its building), and
 idempotent re-runs. Get this correct and the rest is just more data.
 
-**Slice 2 (next milestone, same engine):** widen `fakecorp.yaml` to add
-`tenant_groups`, `tenants`, `manufacturers`, `device_roles`, `device_types`, and
-port/interface templates. No engine refactor — only registry entries + baseline
-data. For device-type port layouts, prefer pulling definitions from the
-community `netbox-community/devicetype-library` over hand-typing port templates.
+**Slice 2a (next milestone, same engine, no refactor):** widen `fakecorp.yaml`
+to add `tenant_groups`, `tenants`, `manufacturers`, `device_roles`, and bare
+`device_types` (manufacturer + model + slug + u_height, no child templates).
+These are all flat objects in the same shape Slice 1 already handles, so this
+is registry entries + baseline data only — no applier changes.
+
+**Slice 2b (separate milestone — requires extending the applier):** add
+device-type port/interface templates, sourced from the community
+`netbox-community/devicetype-library` rather than hand-authored. This is split
+out from 2a deliberately: a device type carries child template objects
+(interfaces, front/rear ports), a parent-with-children shape the flat applier
+does not yet handle. 2b therefore needs a library fetch/parse step and applier
+support for nested child objects — genuine new engine capability, not just data.
+The baseline declares which device types to include; the engine sources their
+full template definitions from the library (an upstream catalog it consumes, not
+forks — mirroring how the deploy layer wraps netbox-docker).
 
 ## Definition of done (Slice 1)
 

@@ -70,9 +70,12 @@ Detailed marching orders live in `scaffold/SPEC.md`. Summary:
 - **Idempotency is a contract.** Get-or-update by slug; a second run against an
   unchanged baseline makes zero changes and exits 0. That re-run proof is the
   definition of done.
-- **Slice 1** (current): build the full engine, populate only org + location
-  (regions, site groups, sites, locations). **Slice 2**: widen the same engine
-  to tenancy + DCIM by adding registry entries and baseline data — no refactor.
+- **Slice 1** (done): full engine, org + location populated. **Slice 2a**:
+  tenancy + manufacturers + roles + bare device types — flat objects, registry +
+  baseline data only, no refactor. **Slice 2b**: device-type port/interface
+  templates sourced from `netbox-community/devicetype-library` — split out
+  because device types carry child template objects (parent-with-children), which
+  needs the applier extended beyond flat objects, not just more data.
 - References between objects are by **slug**, never by ID (IDs are
   environment-specific and break portability).
 
