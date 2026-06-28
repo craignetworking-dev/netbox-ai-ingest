@@ -7,3 +7,12 @@ services:
       - "8000:8080"
     healthcheck:
       start_period: 180s
+    restart: unless-stopped
+  netbox-worker:
+    restart: unless-stopped
+  postgres:
+    restart: unless-stopped
+  redis:
+    restart: unless-stopped
+  redis-cache:
+    restart: unless-stopped
