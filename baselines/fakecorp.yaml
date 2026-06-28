@@ -41,3 +41,32 @@ locations:
   - name: Main Hall
     slug: den-main
     site: denver-dc
+
+tenant_groups:
+  - name: Business Units
+    slug: business-units
+
+tenants:
+  - name: Acme Corp
+    slug: acme-corp
+    group: business-units
+
+manufacturers:
+  - name: Cisco
+    slug: cisco
+  - name: Juniper
+    slug: juniper
+
+device_roles:
+  - name: Access Switch
+    slug: access-switch
+  - name: Core Router
+    slug: core-router
+
+device_types:
+  - manufacturer: cisco
+    model: Catalyst 9300
+    slug: cisco-catalyst-9300
+  - manufacturer: juniper
+    model: MX204
+    slug: juniper-mx204
