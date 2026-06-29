@@ -55,20 +55,18 @@ extension):**
 
 ## Build order (incremental — prove each before the next)
 
-### Step 0 — API probe (verify before building)
-Before writing engine code, confirm the live NetBox 4.6.3 field names and
-behavior for port templates with a throwaway probe (like the Slice 1 idempotency
-proof). Confirm:
-- endpoints: `dcim.rear_port_templates`, `dcim.front_port_templates`
-- rear-port-template create fields: `device_type` (id), `name`, `type`,
-  `positions`
-- front-port-template create fields: `device_type` (id), `name`, `type`,
-  `rear_port` (id of the rear-port template), `rear_port_position`
-- how to GET a port template scoped to a device type (e.g. filter by
-  `devicetype_id` + `name`)
+### Step 0 — API probe ✅ COMPLETE
+Verified against live NetBox 4.6.3:
 
-Do not build the applier extension until these are confirmed against the live
-instance. If any field differs, adjust the design, not just the code.
+- Endpoints `dcim.rear_port_templates`, `dcim.front_port_templates` confirmed.
+- Rear port create: `device_type` (id), `name`, `type` (e.g. `8p8c`, a choice
+  field), `positions`.
+- Front port create: `device_type` (id), `name`, `type`, `rear_port`
+  (rear-port-template id), `rear_port_position`.
+- Scoped GET works via `devicetype_id` + `name`; returns `None` when absent.
+- Pairing is write-only on read (front-port GET shows no `rear_port` field;
+  query via `filter(rear_port=<id>)`). See the Idempotency contract section for
+  how the applier handles this.
 
 ### Step 1 — registry: child-template descriptors
 Extend the `device_types` registry entry (or add a parallel structure) so the
@@ -142,11 +140,39 @@ device_types:
 
 ## Idempotency contract (Slice 2b)
 
-- Run 1 (apply): the panel device type is created, its 4 rear ports created,
-  its 4 front ports created and correctly paired to their rear ports.
-- Run 2 (re-run): device type unchanged, all 8 child templates found by their
-  scoped `(device_type, name)` key — **0 created, 0 updated, all unchanged,
-  exit 0**. This re-run proof, now at the child level, is the definition of done.
+**Verified API behavior (NetBox 4.6.3, confirmed by probe):** a front-port
+template does not expose its rear-port link on read — a GET returns only
+`rear_ports: []` (plural, empty), with no `rear_port` / `rear_port_position`
+field. The pairing is write-only on the template object: you send `rear_port` +
+`rear_port_position` on create, but cannot read them back from the object. The
+pairing is queryable via `filter(rear_port=<rear_port_template_id>)` (note:
+`rear_port`, not `rear_port_id` — the latter raises a 500). Do not read raw JSON
+via `?format=json` with a token — it returns 403; use pynetbox object access
+(`dict()`).
+
+**Consequences for the applier:**
+
+- **Child identity is `(device_type, name)`** — get by scoped name, create if
+  absent.
+- **Rear ports diff normally** — their readable fields (`type`, `positions`) can
+  be compared.
+- **Front ports: pairing is set-on-create, not diffed.** On create, send
+  `rear_port` (resolved from the sibling rear-port template by name) +
+  `rear_port_position`. On a re-run where the front port already exists by
+  `(device_type, name)`, treat it as unchanged — do not attempt to read-compare
+  the pairing (impossible) and do not re-send it. Other readable front-port
+  fields (`type`) may be diffed normally.
+
+**Documented limitation:** the applier sets front↔rear pairing at create time
+and does not reconcile it on later runs, because NetBox does not expose the
+template pairing on read. A pairing changed manually in the UI would not be
+detected or corrected. Acceptable for a source-of-truth provisioning tool; named
+here so it is an honest, known limitation.
+
+- Run 1 (apply): panel device type created, rear ports created, front ports
+  created and paired.
+- Run 2 (re-run): device type unchanged, all child templates found by
+  `(device_type, name)` — **0 created, 0 updated, all unchanged, exit 0**.
 - `--dry-run` reports the child plan without writing.
 
 ## Definition of done (Slice 2b-local)
@@ -176,8 +202,10 @@ device_types:
   actually returns the right template and `None` when absent. This is the new
   idempotency primitive; if it is wrong, child re-runs will falsely create
   duplicates or falsely report changes.
-- **Front→rear pairing resolution** — confirm a front port ends up pointing at
-  the correct rear port (and position) in NetBox, not just that it was created.
-  Verify the pairing in the UI, not only the counts.
+- **Front→rear pairing** — since the pairing is write-only on read, verify it
+  in the NetBox UI (device type → Front Ports shows each front port's paired
+  rear port), or programmatically via `filter(rear_port=<id>)`. Confirm the
+  pairing persisted correctly at create; it is not reconciled on re-run by
+  design.
 - **No regression on flat types** — the device types from 2a must still report
   unchanged on re-run after the extension lands.
