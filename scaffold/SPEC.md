@@ -148,6 +148,10 @@ support for nested child objects — genuine new engine capability, not just dat
 The baseline declares which device types to include; the engine sources their
 full template definitions from the library (an upstream catalog it consumes, not
 forks — mirroring how the deploy layer wraps netbox-docker).
+Build order: local panel templates first (front/rear port pairing — the
+structured-cabling pass-through) to prove the applier's nested-child handling,
+then library-sourcing reuses that same extension. See `scaffold/SPEC-2b.md` for
+the detailed 2b spec.
 
 ## Definition of done (Slice 1)
 
