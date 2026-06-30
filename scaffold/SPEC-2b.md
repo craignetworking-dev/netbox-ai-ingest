@@ -55,18 +55,30 @@ extension):**
 
 ## Build order (incremental — prove each before the next)
 
-### Step 0 — API probe ✅ COMPLETE
-Verified against live NetBox 4.6.3:
+### Step 0 — API probe ✅ COMPLETE (corrected after serializer introspection)
+Verified against live NetBox 4.6.3. Initial probe conclusions about front-port
+pairing were wrong — corrected here after introspecting `FrontPortTemplateSerializer`
+directly inside the container.
+
+**How the correct schema was found:** OPTIONS/schema endpoints return 403 for
+token auth. NetBox 4.6 silently accepts unknown fields on create without erroring
+— so a probe that sends wrong field names gets a 201 back, the fields are
+silently dropped, and the round-trip looks like the pairing was set but is
+unreadable. The only reliable source is the Django serializer itself. Always
+verify field names by introspecting the serializer, not by API round-trip alone.
 
 - Endpoints `dcim.rear_port_templates`, `dcim.front_port_templates` confirmed.
 - Rear port create: `device_type` (id), `name`, `type` (e.g. `8p8c`, a choice
   field), `positions`.
-- Front port create: `device_type` (id), `name`, `type`, `rear_port`
-  (rear-port-template id), `rear_port_position`.
+- Front port create: `device_type` (id), `name`, `type`, and `rear_ports` — a
+  **list of mapping objects**, not flat `rear_port`/`rear_port_position` fields.
+  Each mapping: `{"position": <int>, "rear_port": <rear-port-template id>,
+  "rear_port_position": <int, optional>}`. Example:
+  `rear_ports=[{"position": 1, "rear_port": <rear_id>, "rear_port_position": 1}]`
+- The pairing **is readable on GET** — it returns back populated. The initial
+  "write-only" conclusion was wrong: it was caused by sending the non-existent
+  field names `rear_port` and `rear_port_template`, which NetBox silently dropped.
 - Scoped GET works via `devicetype_id` + `name`; returns `None` when absent.
-- Pairing is write-only on read (front-port GET shows no `rear_port` field;
-  query via `filter(rear_port=<id>)`). See the Idempotency contract section for
-  how the applier handles this.
 
 ### Step 1 — registry: child-template descriptors
 Extend the `device_types` registry entry (or add a parallel structure) so the
@@ -120,57 +132,61 @@ device_types:
     front_ports:
       - name: "1"
         type: 8p8c
-        rear_port: "1"            # by name -> resolved to rear-port id
-        rear_port_position: 1
+        rear_ports:
+          - position: 1
+            rear_port: "1"        # by name -> resolved to rear-port-template id
+            rear_port_position: 1
       - name: "2"
         type: 8p8c
-        rear_port: "2"
-        rear_port_position: 1
+        rear_ports:
+          - position: 1
+            rear_port: "2"
+            rear_port_position: 1
       - name: "3"
         type: 8p8c
-        rear_port: "3"
-        rear_port_position: 1
+        rear_ports:
+          - position: 1
+            rear_port: "3"
+            rear_port_position: 1
       - name: "4"
         type: 8p8c
-        rear_port: "4"
-        rear_port_position: 1
+        rear_ports:
+          - position: 1
+            rear_port: "4"
+            rear_port_position: 1
 ```
 
 (Requires a `Generic` manufacturer — add it to `manufacturers` if not present.)
 
 ## Idempotency contract (Slice 2b)
 
-**Verified API behavior (NetBox 4.6.3, confirmed by probe):** a front-port
-template does not expose its rear-port link on read — a GET returns only
-`rear_ports: []` (plural, empty), with no `rear_port` / `rear_port_position`
-field. The pairing is write-only on the template object: you send `rear_port` +
-`rear_port_position` on create, but cannot read them back from the object. The
-pairing is queryable via `filter(rear_port=<rear_port_template_id>)` (note:
-`rear_port`, not `rear_port_id` — the latter raises a 500). Do not read raw JSON
-via `?format=json` with a token — it returns 403; use pynetbox object access
-(`dict()`).
+**Verified API behavior (NetBox 4.6.3, confirmed by serializer introspection):**
+front-port template pairing is the `rear_ports` field — a list of mapping
+objects, **readable on GET**. The "write-only" framing in the earlier probe
+was wrong and is retracted. See Step 0 for the corrected field schema.
 
 **Consequences for the applier:**
 
 - **Child identity is `(device_type, name)`** — get by scoped name, create if
   absent.
-- **Rear ports diff normally** — their readable fields (`type`, `positions`) can
-  be compared.
-- **Front ports: pairing is set-on-create, not diffed.** On create, send
-  `rear_port` (resolved from the sibling rear-port template by name) +
-  `rear_port_position`. On a re-run where the front port already exists by
-  `(device_type, name)`, treat it as unchanged — do not attempt to read-compare
-  the pairing (impossible) and do not re-send it. Other readable front-port
-  fields (`type`) may be diffed normally.
+- **Rear ports diff normally** — readable fields (`type`, `positions`) are
+  compared and PATCHed on change.
+- **Front ports: pairing is set on create via `rear_ports` list.** On create,
+  send `rear_ports=[{"position": <n>, "rear_port": <rear-port-template id>,
+  "rear_port_position": <n>}]` with the rear-port ID resolved from the sibling
+  cache by name. On re-run where the front port already exists by
+  `(device_type, name)`, `type` is diffed normally. Diffing the `rear_ports`
+  mapping list is deferred — it requires list-level comparison, not simple
+  field equality, and is a bounded follow-up, not a blocker.
 
-**Documented limitation:** the applier sets front↔rear pairing at create time
-and does not reconcile it on later runs, because NetBox does not expose the
-template pairing on read. A pairing changed manually in the UI would not be
-detected or corrected. Acceptable for a source-of-truth provisioning tool; named
-here so it is an honest, known limitation.
+**Documented follow-up (not a blocker):** the applier does not yet reconcile
+`rear_ports` mapping changes on re-run. A pairing changed manually in the UI
+would not be detected. This is a known, scoped gap: it can be added later by
+comparing the `rear_ports` list from the baseline against the live object's
+`rear_ports` list. Named here so it is honest rather than hidden.
 
 - Run 1 (apply): panel device type created, rear ports created, front ports
-  created and paired.
+  created with correct `rear_ports` pairing.
 - Run 2 (re-run): device type unchanged, all child templates found by
   `(device_type, name)` — **0 created, 0 updated, all unchanged, exit 0**.
 - `--dry-run` reports the child plan without writing.
@@ -202,10 +218,10 @@ here so it is an honest, known limitation.
   actually returns the right template and `None` when absent. This is the new
   idempotency primitive; if it is wrong, child re-runs will falsely create
   duplicates or falsely report changes.
-- **Front→rear pairing** — since the pairing is write-only on read, verify it
-  in the NetBox UI (device type → Front Ports shows each front port's paired
-  rear port), or programmatically via `filter(rear_port=<id>)`. Confirm the
-  pairing persisted correctly at create; it is not reconciled on re-run by
-  design.
+- **Front→rear pairing** — verify in the NetBox UI (device type → Front Ports
+  shows each front port's paired rear port) or by reading the `rear_ports` field
+  on the fetched front-port-template object. The pairing is readable on GET.
+  Confirm it persisted correctly at create; diffing the `rear_ports` mapping list
+  on re-run is a documented follow-up, not yet implemented.
 - **No regression on flat types** — the device types from 2a must still report
   unchanged on re-run after the extension lands.
