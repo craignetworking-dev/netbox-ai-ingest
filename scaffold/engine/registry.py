@@ -52,6 +52,32 @@ REGISTRY = {
         "natural_key": "slug",
         "required": ["manufacturer", "model", "slug"],
         "refs": {"manufacturer": "manufacturers"},
+        # Ordered child collections. Applied after the parent device_type upsert.
+        # Types without a "children" key follow the existing flat path unchanged.
+        "children": [
+            {
+                "key": "rear_ports",
+                "endpoint": "dcim.rear_port_templates",
+                "natural_key": "name",       # scoped to parent device_type
+                "parent_ref": "device_type", # field name in create/filter
+                "diffable": ["type", "positions"],
+            },
+            {
+                "key": "front_ports",
+                "endpoint": "dcim.front_port_templates",
+                "natural_key": "name",
+                "parent_ref": "device_type",
+                "diffable": ["type"],
+                # rear_ports is a list of mapping dicts built on create.
+                # Within each mapping, "rear_port" is a sibling name resolved to
+                # a rear-port-template id from the rear_ports sibling cache.
+                # Diffing the rear_ports list on re-run is a deferred follow-up.
+                "mapping_list": {
+                    "field": "rear_ports",
+                    "sibling_ref": {"key": "rear_port", "collection": "rear_ports"},
+                },
+            },
+        ],
     },
 }
 

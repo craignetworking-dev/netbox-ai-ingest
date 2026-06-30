@@ -56,6 +56,8 @@ manufacturers:
     slug: cisco
   - name: Juniper
     slug: juniper
+  - name: Generic
+    slug: generic
 
 device_roles:
   - name: Access Switch
@@ -70,3 +72,45 @@ device_types:
   - manufacturer: juniper
     model: MX204
     slug: juniper-mx204
+  - manufacturer: generic
+    model: Patch Panel 4-Port
+    slug: generic-patch-panel-4
+    u_height: 1
+    rear_ports:
+      - name: "1"
+        type: 8p8c
+        positions: 1
+      - name: "2"
+        type: 8p8c
+        positions: 1
+      - name: "3"
+        type: 8p8c
+        positions: 1
+      - name: "4"
+        type: 8p8c
+        positions: 1
+    front_ports:
+      - name: "1"
+        type: 8p8c
+        rear_ports:
+          - position: 1
+            rear_port: "1"
+            rear_port_position: 1
+      - name: "2"
+        type: 8p8c
+        rear_ports:
+          - position: 1
+            rear_port: "2"
+            rear_port_position: 1
+      - name: "3"
+        type: 8p8c
+        rear_ports:
+          - position: 1
+            rear_port: "3"
+            rear_port_position: 1
+      - name: "4"
+        type: 8p8c
+        rear_ports:
+          - position: 1
+            rear_port: "4"
+            rear_port_position: 1
