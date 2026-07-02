@@ -1,0 +1,60 @@
+FakeCorp -- Site Device Handoff doc (ATL + DEN)
+Prepared by: NOC team / field eng
+DRAFT - last touched 2026-06-12 -- NOT final
+
+=== ATL HQ, Building A / Server Room 101 ===
+
+Device inventory (as of last week; some models may be stale -- verify on site):
+
+Hostname              Mgmt IP        Serial          Role           Rack
+---------------------------------------------------------------------------
+atl-core-rtr-01      10.1.0.1       FAKE-SN-00123   Core Router    A-01U01
+atl-dsw-01          10.1.0.2      FAKE-SN-00124    Dist Switch    A-01U05
+atl-dsw-02          10.1.0.3      FAKE-SN-00125    Dist Switch    A-01U07
+atl-asw-101        10.1.1.100     FAKE-SN-00126    Access Switch   A-02U01
+
+NOTE: atl-core-rtr-01 is primary BGP speaker. Talk to Dan before touching. Mgmt is 10.1.0.1 (OOB + in-band, VLAN 100).
+atl-dsw-01 is primary uplink to core. atl-dsw-02 is VPC peer -- do not take both down at same time.
+
+-- Cable plant / ATL --
+
+ Gi0/0   atl-core-rtr-01   -> loopback (10.1.0.1, mgmt vlan)
+ Gi0/1   atl-core-rtr-01   -> atl-dsw-01  Gi1/1
+ Gi0/2   atl-core-rtr-01   -> atl-dsw-02  Gi1/1
+ Te1/0   atl-core-rtr-01   -> provider handoff (physical only, not in scope here)
+
+atl-dsw-01 uplinks:
+  Gi1/1  -> atl-core-rtr-01 Gi0/1
+  Gi1/2  -> atl-dsw-02 Gi1/2     (vpc peer-link)
+  Gi1/49 -> atl-asw-101 Gi0/1
+
+Management:
+  atl-dsw-01  10.1.0.2/24  gw 10.1.0.254
+  atl-dsw-02  10.1.0.3/24  gw 10.1.0.254
+
+Patch panel notes (Bldg-A floor 1):
+  PP-01 port 1 rear -> structured cable -> atl-asw-101 Fa0/1
+  PP-01 port 2 rear -> structured cable -> atl-asw-101 Fa0/2
+
+TODO: after VLAN renumber, update 10.1.1.100 mgmt record.
+      atl-asw-101 was 192.168.10.100/24 pre-migration -- still shows up in old runbooks
+
+
+=== DEN DC, Main Hall ===
+
+ den-edge-rtr-01   172.16.20.1   FAKE-SN-00127   Edge Router   DEN-R01U01
+
+Notes from field eng (2026-06-10):
+  "serial label scratched on chassis, verified via 'show version' -- FAKE-SN-00127 confirmed."
+  mgmt 172.16.20.1/24 (same int as loopback, DEN mgmt vlan)
+
+=== Management IP summary ===
+
+  10.1.0.1      atl-core-rtr-01   (OOB + in-band)
+  10.1.0.2      atl-dsw-01
+  10.1.0.3      atl-dsw-02
+  10.1.1.100    atl-asw-101
+  10.1.0.254    gateway  (L3 SVI on atl-core-rtr-01)
+  172.16.20.1   den-edge-rtr-01
+
+-- end of doc --
