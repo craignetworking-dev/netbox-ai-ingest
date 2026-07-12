@@ -26,7 +26,8 @@ netbox-ai-ingest            NetBox                  netbox-ansible-automation
 - **Applied AI with a security model** — an ingestion pipeline structures
   unstructured network docs into NetBox objects using the Claude API, with a
   local pseudonymization layer that strips sensitive identifiers (IPs, hostnames,
-  serials) before anything is sent to an LLM.
+  serials) before anything is sent to an LLM. The pseudonymization foundation 
+  is complete; the LLM-structuring step is the current build.
 - **The network + AI intersection** — deep network domain modeling (DCIM,
   source-of-truth structure) combined with agentic/LLM tooling, built by a
   network engineer rather than bolted on.
@@ -47,9 +48,10 @@ The engine is built in layers, each scoped tightly and proven before the next:
    types is done by data + registry entries, not by rewriting the engine.
 3. **AI ingestion pipeline** — pseudonymize-then-LLM: a local pass replaces
    sensitive identifiers with stable, reversible placeholders (kept in a
-   local-only mapping) before any LLM call. The security model protects
-   identifiers via map custody and detection completeness; its boundaries
-   (e.g. topology shape) are documented explicitly.
+   local-only mapping) before any LLM call. The pseudonymization layer is built 
+   and proven; the LLM structuring and re-identification steps are in progress. 
+   The security model protects identifiers via map custody and detection 
+   completeness; its boundaries (e.g. topology shape) are documented explicitly.
 4. **Synthetic dataset** — a fully fabricated demo network for end-to-end
    demonstration. No real network data, ever.
 
