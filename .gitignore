@@ -17,3 +17,6 @@ node_modules/
 
 # OS
 .DS_Store
+
+# AI ingest — local-only identifier mapping (reversal key; never commit)
+ingest/*.map.json
